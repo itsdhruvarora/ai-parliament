@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Council of AI</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg: #0a0a0a;
+    --bg2: #111111;
+    --bg3: #181818;
+    --border: #222222;
+    --border2: #2a2a2a;
+    --text: #e8e8e8;
+    --text2: #888888;
+    --text3: #444444;
+    --accent: #f0c040;
+    --accent2: #c09020;
+    --proceed: #4ade80;
+    --pivot: #60a5fa;
+    --stop: #f87171;
+    --abort: #a78bfa;
+    --recuse: #6b7280;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* Layout */
+  .app { display: grid; grid-template-columns: 280px 1fr; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar {
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .logo {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo-title {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .logo-sub {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 3px;
+    font-family: var(--mono);
+  }
+
+  .sidebar-section {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-label {
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 10px;
+    font-family: var(--mono);
+  }
+
+  .parliament-member {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .parliament-member:last-child { border-bottom: none; }
+
+  .member-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text3);
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+
+  .member-dot.thinking { background: var(--accent); animation: pulse 1s infinite; }
+  .member-dot.proceed { background: var(--proceed); }
+  .member-dot.pivot { background: var(--pivot); }
+  .member-dot.stop { background: var(--stop); }
+  .member-dot.abort { background: var(--abort); }
+  .member-dot.recuse { background: var(--recuse); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .member-info { flex: 1; min-width: 0; }
+  .member-name { font-size: 12px; font-weight: 500; }
+  .member-vote {
+    font-size: 10px;
+    font-family: var(--mono);
+    color: var(--text2);
+    margin-top: 1px;
+  }
+
+  .coalition-badge {
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--bg3);
+    color: var(--text2);
+    border: 1px solid var(--border2);
+    font-family: var(--mono);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 90px;
+  }
+
+  .past-debates { padding: 16px 20px; flex: 1; overflow-y: auto; }
+  .past-debate-item {
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    background: var(--bg3);
+  }
+
+  .past-debate-item:hover { border-color: var(--border2); }
+  .past-debate-problem { font-size: 11px; color: var(--text2); line-height: 1.4; margin-bottom: 4px; }
+  .past-debate-meta { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+
+  /* Main */
+  .main { display: flex; flex-direction: column; }
+
+  /* Header */
+  .header {
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg2);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .round-indicator {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .round-number {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .cost-tracker {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+  }
+
+  /* Content */
+  .content { flex: 1; padding: 28px; max-width: 860px; }
+
+  /* Input phase */
+  .input-phase { max-width: 680px; }
+
+  .phase-title {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text3);
+    font-family: var(--mono);
+    margin-bottom: 16px;
+  }
+
+  .problem-input {
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    padding: 16px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 14px;
+    line-height: 1.7;
+    resize: vertical;
+    min-height: 140px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  .problem-input:focus { border-color: var(--accent2); }
+
+  .input-hint {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 8px;
+    font-family: var(--mono);
+  }
+
+  .btn-primary {
+    margin-top: 16px;
+    padding: 10px 24px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 3px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--mono);
+    cursor: pointer;
+    letter-spacing: 0.5px;
+    transition: opacity 0.15s;
+  }
+
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-primary:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .btn-secondary {
+    padding: 8px 16px;
+    background: transparent;
+    color: var(--text2);
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    font-size: 12px;
+    font-family: var(--mono);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+  }
+
+  .btn-secondary:hover { border-color: var(--text2); color: var(--text); }
+
+  /* Clarification */
+  .clarification-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .clarification-model {
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--accent);
+    margin-bottom: 8px;
+    font-weight: 500;
+  }
+
+  .clarification-question {
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  .clarification-assumption {
+    font-size: 11px;
+    color: var(--text2);
+    font-family: var(--mono);
+  }
+
+  /* Chair answer */
+  .chair-panel {
+    background: var(--bg2);
+    border: 1px solid var(--accent2);
+    border-radius: 4px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+
+  .chair-panel-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .chair-answer-input {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 3px;
+    padding: 12px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    line-height: 1.6;
+    resize: vertical;
+    min-height: 100px;
+    outline: none;
+  }
+
+  .btn-row { display: flex; gap: 10px; margin-top: 12px; }
+
+  /* Debate feed */
+  .debate-feed { display: flex; flex-direction: column; gap: 0; }
+
+  .round-header {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding: 20px 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .round-header::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .response-card {
+    border-left: 2px solid var(--border2);
+    padding: 14px 0 14px 16px;
+    margin-bottom: 4px;
+    transition: border-color 0.2s;
+  }
+
+  .response-card:hover { border-left-color: var(--border2); }
+  .response-card.proceed { border-left-color: var(--proceed); }
+  .response-card.pivot { border-left-color: var(--pivot); }
+  .response-card.stop { border-left-color: var(--stop); }
+  .response-card.abort { border-left-color: var(--abort); }
+  .response-card.recuse { border-left-color: var(--recuse); }
+
+  .response-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .response-name {
+    font-size: 12px;
+    font-weight: 500;
+    font-family: var(--mono);
+    color: var(--text);
+  }
+
+  .vote-pill {
+    font-size: 9px;
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-family: var(--mono);
+    font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+
+  .vote-pill.Proceed { background: rgba(74,222,128,0.12); color: var(--proceed); }
+  .vote-pill.Pivot { background: rgba(96,165,250,0.12); color: var(--pivot); }
+  .vote-pill.Stop { background: rgba(248,113,113,0.12); color: var(--stop); }
+  .vote-pill.Abort { background: rgba(167,139,250,0.12); color: var(--abort); }
+  .vote-pill.Recuse { background: rgba(107,114,128,0.12); color: var(--recuse); }
+
+  .confidence-tag {
+    font-size: 9px;
+    color: var(--text3);
+    font-family: var(--mono);
+  }
+
+  .response-argument {
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--text2);
+    white-space: pre-wrap;
+  }
+
+  .defection-note {
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--stop);
+    font-family: var(--mono);
+    padding: 4px 8px;
+    background: rgba(248,113,113,0.06);
+    border-radius: 2px;
+  }
+
+  .lobby-note {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--pivot);
+    font-family: var(--mono);
+  }
+
+  /* Coalition feed */
+  .coalition-event {
+    padding: 8px 12px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    margin: 8px 0;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: var(--text2);
+  }
+
+  .coalition-event.formed { border-color: var(--accent2); color: var(--accent); }
+  .coalition-event.broken { border-color: #4a1b0c; color: var(--stop); }
+
+  /* Settlement / Deadlock */
+  .outcome-banner {
+    padding: 20px;
+    border-radius: 4px;
+    margin-top: 24px;
+    text-align: center;
+  }
+
+  .outcome-banner.settlement {
+    background: rgba(74,222,128,0.06);
+    border: 1px solid rgba(74,222,128,0.2);
+  }
+
+  .outcome-banner.deadlock {
+    background: rgba(248,113,113,0.06);
+    border: 1px solid rgba(248,113,113,0.2);
+  }
+
+  .outcome-title {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .outcome-banner.settlement .outcome-title { color: var(--proceed); }
+  .outcome-banner.deadlock .outcome-title { color: var(--stop); }
+
+  .outcome-detail { font-size: 12px; color: var(--text2); font-family: var(--mono); }
+
+  /* Analysis */
+  .analysis-section {
+    margin-top: 24px;
+    padding: 20px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+
+  .analysis-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 16px;
+  }
+
+  .analysis-row {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+
+  .analysis-row:last-child { border-bottom: none; }
+  .analysis-key { color: var(--text3); font-family: var(--mono); }
+  .analysis-val { color: var(--text); }
+
+  .fake-consensus-warning {
+    margin-top: 12px;
+    padding: 10px 14px;
+    background: rgba(240,192,64,0.06);
+    border: 1px solid rgba(240,192,64,0.2);
+    border-radius: 3px;
+    font-size: 12px;
+    color: var(--accent);
+    font-family: var(--mono);
+  }
+
+  /* Pre-mortem */
+  .premortem-section {
+    margin-bottom: 20px;
+    padding: 16px;
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+  }
+
+  .premortem-row {
+    display: flex;
+    gap: 12px;
+    padding: 4px 0;
+    font-size: 12px;
+  }
+
+  .premortem-name { font-family: var(--mono); color: var(--accent); min-width: 120px; }
+  .premortem-text { color: var(--text2); }
+
+  /* Thinking indicator */
+  .thinking-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 0 12px 16px;
+    border-left: 2px solid var(--border);
+    font-size: 11px;
+    color: var(--text3);
+    font-family: var(--mono);
+  }
+
+  .thinking-dots span {
+    display: inline-block;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin: 0 1px;
+    animation: pulse 1s infinite;
+  }
+
+  .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+  /* Hidden */
+  .hidden { display: none !important; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-title">Council of AI</div>
+      <div class="logo-sub">// parliamentary debate engine</div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Parliament</div>
+      <div id="parliamentList">
+        <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">Loading...</div>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Session</div>
+      <div id="roundInfo" style="font-family:var(--mono);font-size:11px;color:var(--text3)">No active debate</div>
+    </div>
+
+    <div class="past-debates">
+      <div class="sidebar-label">Past Debates</div>
+      <div id="pastDebates"></div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="header">
+      <div class="round-indicator">
+        Status: <span class="round-number" id="statusText">Idle</span>
+      </div>
+      <div class="cost-tracker" id="costTracker"></div>
+    </div>
+
+    <div class="content">
+      <!-- Input Phase -->
+      <div id="inputPhase" class="input-phase">
+        <div class="phase-title">// Chair — Open Session</div>
+        <textarea
+          class="problem-input"
+          id="problemInput"
+          placeholder="State the problem. Not your solution — the problem. What is broken? Who is affected? What does the world look like without a solution?
+
+Example: Indian D2C brands are drowning in signals across 6 platforms simultaneously. They miss crises, lose customers, and can't act fast enough. How do we solve this?"
+        ></textarea>
+        <div class="input-hint">// tip: vague problem = vague debate. the parliament will ask clarifying questions.</div>
+        <button class="btn-primary" id="startBtn" onclick="startDebate()">Convene the Council →</button>
+      </div>
+
+      <!-- Clarification Phase -->
+      <div id="clarificationPhase" class="hidden">
+        <div class="phase-title">// Clarification Phase</div>
+        <div id="clarificationContent"></div>
+
+        <!-- Chair Answer Panel -->
+        <div id="chairPanel" class="chair-panel hidden">
+          <div class="chair-panel-title">// Chair — Answer or Pass</div>
+          <p style="font-size:12px;color:var(--text2);margin-bottom:12px">The parliament has refined their questions. Answer what you can, or pass to let them proceed with their assumptions.</p>
+          <textarea class="chair-answer-input" id="chairAnswerInput" placeholder="Answer the questions above, or leave empty to pass..."></textarea>
+          <div class="btn-row">
+            <button class="btn-primary" onclick="submitChairAnswer()">Continue Debate →</button>
+            <button class="btn-secondary" onclick="passChairAnswer()">Pass — proceed with assumptions</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Debate Phase -->
+      <div id="debatePhase" class="hidden">
+        <div class="phase-title" id="debatePhaseLabel">// Pre-Mortem</div>
+
+        <div id="preMortemSection" class="premortem-section hidden">
+          <div class="sidebar-label" style="margin-bottom:10px">Predictions before round 1</div>
+          <div id="preMortemList"></div>
+        </div>
+
+        <div class="debate-feed" id="debateFeed"></div>
+
+        <div id="outcomeBanner" class="hidden"></div>
+        <div id="analysisBanner" class="hidden"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const state = {
+  parliament: [],
+  memberVotes: {},
+  memberCoalitions: {},
+  currentRound: 0,
+  debating: false,
+  thinkingModels: new Set()
+}
+
+const $ = id => document.getElementById(id)
+
+async function init() {
+  const res = await fetch('/api/status').then(r => r.json())
+  if (res.ready) {
+    state.parliament = res.parliament
+    renderParliament()
+  } else {
+    $('parliamentList').innerHTML = `<div style="font-size:11px;color:var(--stop);font-family:var(--mono)">${res.error}</div>`
+  }
+  loadPastDebates()
+  connectSSE()
+}
+
+function renderParliament() {
+  $('parliamentList').innerHTML = state.parliament.map(m => `
+    <div class="parliament-member" id="member-${m.id}">
+      <div class="member-dot" id="dot-${m.id}"></div>
+      <div class="member-info">
+        <div class="member-name">${m.name}</div>
+        <div class="member-vote" id="vote-${m.id}">—</div>
+      </div>
+      <div class="coalition-badge hidden" id="coalition-${m.id}"></div>
+    </div>
+  `).join('')
+}
+
+function updateMemberStatus(adapterId, vote, confidence, coalitionName) {
+  const dot = $(`dot-${adapterId}`)
+  const voteEl = $(`vote-${adapterId}`)
+  const coalitionEl = $(`coalition-${adapterId}`)
+
+  if (dot) {
+    dot.className = 'member-dot ' + (vote || '').toLowerCase()
+  }
+  if (voteEl && vote) {
+    voteEl.textContent = `${vote} · ${confidence || ''}`
+  }
+  if (coalitionEl) {
+    if (coalitionName) {
+      coalitionEl.textContent = coalitionName
+      coalitionEl.classList.remove('hidden')
+    } else {
+      coalitionEl.classList.add('hidden')
+    }
+  }
+}
+
+function setThinking(adapterId, thinking) {
+  const dot = $(`dot-${adapterId}`)
+  if (!dot) return
+  if (thinking) {
+    dot.classList.add('thinking')
+    state.thinkingModels.add(adapterId)
+  } else {
+    dot.classList.remove('thinking')
+    state.thinkingModels.delete(adapterId)
+  }
+}
+
+function connectSSE() {
+  const es = new EventSource('/api/events')
+  es.onmessage = (e) => {
+    const event = JSON.parse(e.data)
+    handleEvent(event)
+  }
+}
+
+function handleEvent(event) {
+  switch (event.type) {
+    case 'phase_start':
+      $('statusText').textContent = event.phase.replace(/_/g, ' ')
+      break
+
+    case 'model_thinking':
+      setThinking(event.adapterId, true)
+      addThinkingRow(event.adapterId, event.name)
+      break
+
+    case 'model_response':
+      setThinking(event.adapterId, false)
+      removeThinkingRow(event.adapterId)
+      break
+
+    case 'model_error':
+      setThinking(event.adapterId, false)
+      removeThinkingRow(event.adapterId)
+      break
+
+    case 'clarification_questions':
+      renderClarificationRound1(event.questions)
+      break
+
+    case 'clarification_complete':
+      renderClarificationRound2(event.clarifications)
+      $('chairPanel').classList.remove('hidden')
+      break
+
+    case 'awaiting_chair':
+      $('statusText').textContent = 'Awaiting Chair'
+      break
+
+    case 'premortem_complete':
+      renderPreMortems(event.preMortems)
+      break
+
+    case 'round_start':
+      state.currentRound = event.round
+      $('roundInfo').textContent = `Round ${event.round} / ${event.maxRounds}`
+      $('statusText').textContent = `Round ${event.round}`
+      addRoundHeader(event.round)
+      break
+
+    case 'round_complete':
+      renderRoundResponses(event.round, event.responses, event.coalitions)
+      renderCoalitionEvents(event.coalitions)
+      if (!event.openingRound) {
+        event.responses.forEach(r => {
+          const coalition = event.coalitions.find(c => c.members.includes(r.adapterId))
+          updateMemberStatus(r.adapterId, r.vote, r.confidence, coalition?.name)
+        })
+      } else {
+        event.responses.forEach(r => setThinking(r.adapterId, false))
+      }
+      break
+
+    case 'settlement':
+      renderOutcome('settlement', event)
+      $('statusText').textContent = 'SETTLED'
+      break
+
+    case 'deadlock':
+      $('statusText').textContent = 'DEADLOCK'
+      break
+
+    case 'deadlock_votes':
+      renderDeadlockVotes(event.finalVotes)
+      break
+
+    case 'analysis_complete':
+      renderAnalysis(event.analysis)
+      break
+
+    case 'debate_complete':
+      state.debating = false
+      loadPastDebates()
+      break
+  }
+}
+
+const thinkingRows = {}
+
+function addThinkingRow(adapterId, name) {
+  const feed = $('debateFeed')
+  if (!feed || thinkingRows[adapterId]) return
+  const div = document.createElement('div')
+  div.className = 'thinking-row'
+  div.id = `thinking-${adapterId}`
+  div.innerHTML = `
+    <div class="thinking-dots"><span></span><span></span><span></span></div>
+    <span style="color:var(--accent)">${name}</span>
+    <span>formulating position</span>
+  `
+  feed.appendChild(div)
+  thinkingRows[adapterId] = true
+}
+
+function removeThinkingRow(adapterId) {
+  const el = $(`thinking-${adapterId}`)
+  if (el) el.remove()
+  delete thinkingRows[adapterId]
+}
+
+function addRoundHeader(round) {
+  const feed = $('debateFeed')
+  if (!feed) return
+  const div = document.createElement('div')
+  div.className = 'round-header'
+  div.innerHTML = `Round ${round}`
+  feed.appendChild(div)
+}
+
+function renderClarificationRound1(questions) {
+  $('inputPhase').classList.add('hidden')
+  $('clarificationPhase').classList.remove('hidden')
+  $('debatePhase').classList.add('hidden')
+
+  const content = $('clarificationContent')
+  content.innerHTML = `
+    <div class="phase-title" style="margin-bottom:16px">// Round 1 — Blind Questions</div>
+    ${questions.map(q => `
+      <div class="clarification-card">
+        <div class="clarification-model">${q.name}</div>
+        <div class="clarification-question">${q.question || 'No question'}</div>
+        <div class="clarification-assumption">Assumption: ${q.assumption || 'None stated'}</div>
+      </div>
+    `).join('')}
+    <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:12px">// models reviewing each other's questions...</div>
+  `
+}
+
+function renderClarificationRound2(clarifications) {
+  const content = $('clarificationContent')
+  const round2Html = clarifications.round2.map(q => `
+    <div class="clarification-card">
+      <div class="clarification-model">${q.name}</div>
+      <div style="font-size:11px;font-family:var(--mono);color:var(--text3);margin-bottom:6px">Status: ${q.status} ${q.endorse && q.endorse !== 'NONE' ? `· Endorses: ${q.endorse}` : ''}</div>
+      <div class="clarification-assumption">Proceeding with: ${q.assumption || 'Original assumption'}</div>
+      ${q.followUp && q.followUp !== 'NONE' ? `<div style="font-size:12px;color:var(--text2);margin-top:6px">Follow-up: ${q.followUp}</div>` : ''}
+    </div>
+  `).join('')
+
+  content.innerHTML += `
+    <div class="phase-title" style="margin:20px 0 16px">// Round 2 — After Seeing All Questions</div>
+    ${round2Html}
+  `
+}
+
+function renderPreMortems(preMortems) {
+  $('clarificationPhase').classList.add('hidden')
+  $('debatePhase').classList.remove('hidden')
+  $('preMortemSection').classList.remove('hidden')
+  $('debatePhaseLabel').textContent = '// Debate'
+
+  $('preMortemList').innerHTML = preMortems.map(pm => `
+    <div class="premortem-row">
+      <div class="premortem-name">${pm.name}</div>
+      <div class="premortem-text">${pm.prediction}</div>
+    </div>
+  `).join('')
+}
+
+function renderRoundResponses(round, responses, coalitions) {
+  const feed = $('debateFeed')
+
+  responses.forEach(r => {
+    const div = document.createElement('div')
+    div.className = 'response-card ' + (r.vote || 'opening')
+    var votePill = r.vote
+      ? '<span class="vote-pill ' + r.vote + '">' + r.vote + '</span>'
+      : '<span class="vote-pill" style="background:rgba(255,255,255,0.05);color:var(--text3)">Opening</span>'
+    var confTag = r.confidence ? '<span class="confidence-tag">' + r.confidence + '</span>' : ''
+    var dirNote = r.direction ? '<div style="margin-top:8px;font-size:11px;font-family:var(--mono);color:var(--accent);padding:4px 8px;background:rgba(240,192,64,0.06);border-radius:2px">&#8594; ' + escapeHtml(r.direction) + '</div>' : ''
+    var defNote = r.defection ? '<div class="defection-note">&#9889; Defected: ' + escapeHtml(r.defection) + '</div>' : ''
+    var lobbyNote = r.lobby ? '<div class="lobby-note">&#128483; ' + escapeHtml(r.lobby) + '</div>' : ''
+    div.innerHTML = '<div class="response-header"><span class="response-name">' + r.name + '</span>' + votePill + confTag + '</div>' +
+      '<div class="response-argument">' + escapeHtml(r.argument) + '</div>' + dirNote + defNote + lobbyNote
+    feed.appendChild(div)
+  })
+}
+
+function renderCoalitionEvents(coalitions) {
+  if (!coalitions || coalitions.length === 0) return
+  const feed = $('debateFeed')
+
+  coalitions.forEach(c => {
+    if (c.members.length >= 2) {
+      const div = document.createElement('div')
+      div.className = 'coalition-event formed'
+      div.textContent = `⚖ ${c.name} — ${c.members.length} members · ${c.stability} volatility · voting ${c.vote}`
+      feed.appendChild(div)
+    }
+  })
+}
+
+function renderOutcome(type, event) {
+  const banner = $('outcomeBanner')
+  banner.classList.remove('hidden')
+
+  if (type === 'settlement') {
+    banner.className = 'outcome-banner settlement'
+    banner.innerHTML = `
+      <div class="outcome-title">Settlement Reached</div>
+      <div class="outcome-detail">Round ${event.round} · ${event.count} models voted ${event.vote}${event.coalition ? ` · ${event.coalition.name}` : ''}</div>
+    `
+  }
+}
+
+function renderDeadlockVotes(votes) {
+  const banner = $('outcomeBanner')
+  banner.classList.remove('hidden')
+  banner.className = 'outcome-banner deadlock'
+
+  const voteCounts = {}
+  votes.forEach(v => { voteCounts[v.vote] = (voteCounts[v.vote] || 0) + 1 })
+  const summary = Object.entries(voteCounts).map(([v, c]) => `${c}× ${v}`).join(' · ')
+
+  banner.innerHTML = `
+    <div class="outcome-title">Deadlock</div>
+    <div class="outcome-detail" style="margin-bottom:12px">${summary}</div>
+    ${votes.map(v => `
+      <div style="font-size:11px;font-family:var(--mono);color:var(--text2);padding:4px 0">
+        <span style="color:var(--accent)">${v.name}</span> → ${v.vote} (${v.confidence})
+        ${v.reasoning ? `<br><span style="color:var(--text3)">${v.reasoning}</span>` : ''}
+      </div>
+    `).join('')}
+    <div style="margin-top:12px;font-size:11px;color:var(--text3);font-family:var(--mono)">// The Chair must decide. The parliament has spoken — but not in unison.</div>
+  `
+}
+
+function renderAnalysis(analysis) {
+  if (!analysis) return
+  const banner = $('analysisBanner')
+  banner.classList.remove('hidden')
+  var fakeNote = analysis.fakeConsensus ? '<div class="fake-consensus-warning">&#9888; Superficial agreement detected — ' + (analysis.fakeConsensusNote || '') + '</div>' : ''
+  var whatToBuild = analysis.whatToBuild ? '<div class="analysis-row" style="border-top:1px solid var(--accent2);margin-top:8px;padding-top:12px"><div class="analysis-key" style="color:var(--accent)">what to build next</div><div class="analysis-val" style="color:var(--accent)">' + (analysis.whatToBuild || '—') + '</div></div>' : ''
+  var bestSolution = analysis.bestSolutionProposed ? '<div class="analysis-row"><div class="analysis-key">best solution proposed</div><div class="analysis-val">' + (analysis.bestSolutionProposed || '—') + '</div></div>' : ''
+  banner.innerHTML = '<div class="analysis-section">' +
+    '<div class="analysis-title">// Post-Debate Analysis</div>' +
+    '<div class="analysis-row"><div class="analysis-key">disagreement axis</div><div class="analysis-val">' + (analysis.disagreementAxis || '—') + '</div></div>' +
+    '<div class="analysis-row"><div class="analysis-key">assumption conflict</div><div class="analysis-val">' + (analysis.assumptionConflict || '—') + '</div></div>' +
+    '<div class="analysis-row"><div class="analysis-key">decision hinges on</div><div class="analysis-val">' + (analysis.decisionHingesOn || '—') + '</div></div>' +
+    '<div class="analysis-row"><div class="analysis-key">biggest uncertainty</div><div class="analysis-val">' + (analysis.biggestUncertainty || '—') + '</div></div>' +
+    bestSolution + whatToBuild + fakeNote + '</div>'
+}
+
+async function startDebate() {
+  const problem = $('problemInput').value.trim()
+  if (!problem) return
+
+  $('startBtn').disabled = true
+  state.debating = true
+
+  await fetch('/api/debate/start', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ problemStatement: problem })
+  })
+}
+
+async function submitChairAnswer() {
+  const answers = $('chairAnswerInput').value.trim()
+  $('chairPanel').classList.add('hidden')
+  await fetch('/api/debate/chair-answer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ answers: answers || null })
+  })
+}
+
+async function passChairAnswer() {
+  $('chairPanel').classList.add('hidden')
+  await fetch('/api/debate/chair-answer', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ answers: null })
+  })
+}
+
+async function loadPastDebates() {
+  const debates = await fetch('/api/debates').then(r => r.json())
+  $('pastDebates').innerHTML = debates.length === 0
+    ? '<div style="font-size:11px;color:var(--text3);font-family:var(--mono)">No past debates</div>'
+    : debates.map(d => `
+      <div class="past-debate-item" onclick="loadDebate('${d.debateId}')">
+        <div class="past-debate-problem">${d.problemStatement}</div>
+        <div class="past-debate-meta">${d.outcome} · ${d.rounds} rounds · ${new Date(d.timestamp).toLocaleDateString()}</div>
+      </div>
+    `).join('')
+}
+
+async function loadDebate(id) {
+  const debate = await fetch(`/api/debates/${id}`).then(r => r.json())
+  // render past debate — show full transcript
+  $('inputPhase').classList.add('hidden')
+  $('clarificationPhase').classList.add('hidden')
+  $('debatePhase').classList.remove('hidden')
+  $('debateFeed').innerHTML = ''
+  $('outcomeBanner').classList.add('hidden')
+  $('analysisBanner').classList.add('hidden')
+  $('preMortemSection').classList.add('hidden')
+
+  if (debate.preMortems) renderPreMortems(debate.preMortems)
+
+  for (const round of debate.transcript) {
+    addRoundHeader(round.round)
+    renderRoundResponses(round.round, round.responses, [])
+  }
+
+  if (debate.outcome.outcome === 'settlement') {
+    renderOutcome('settlement', { round: debate.outcome.round, count: debate.outcome.count, vote: debate.outcome.vote, coalition: debate.outcome.coalition })
+  } else if (debate.outcome.finalVotes) {
+    renderDeadlockVotes(debate.outcome.finalVotes)
+  }
+
+  if (debate.analysis) renderAnalysis(debate.analysis)
+}
+
+function escapeHtml(str) {
+  if (!str) return ''
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+}
+
+init()
+</script>
+</body>
+</html>
