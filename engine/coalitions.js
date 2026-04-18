@@ -5,6 +5,7 @@ const COALITION_ARCHETYPES = {
   'Abort': ['The Skeptics', 'The Clean Slate Coalition', 'The Hard Stop']
 }
 
+
 let usedNames = new Set()
 
 function getCoalitionName(vote) {

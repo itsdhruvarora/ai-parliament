@@ -1,5 +1,9 @@
 import { nanoid } from 'nanoid'
 import { CoalitionManager } from './coalitions.js'
+import { Anonymizer } from './anonymizer.js'
+import { Verifier } from './verifier.js'
+import { Judge } from './judge.js'
+import { PinnedClaimsBoard } from './pinnedclaims.js'
 import { parseVote, parseClarification, parsePreMortem, parseAnalysis } from './parser.js'
 import {
   systemPrompt,
@@ -9,19 +13,28 @@ import {
   round1Prompt,
   debateRoundPrompt,
   deadlockFinalVotePrompt,
-  whyTheyDisagreePrompt,
-  summarizerPrompt
+  whyTheyDisagreePrompt
 } from './prompts.js'
 
 const MAX_ROUNDS = parseInt(process.env.MAX_ROUNDS || '10')
 const SETTLEMENT_THRESHOLD = parseInt(process.env.SETTLEMENT_THRESHOLD || '3')
-const SUMMARIZE_AFTER_ROUND = 5
+const ROLLING_WINDOW = 2 // full rounds kept in context
 
 export class Council {
   constructor(adapters, onEvent) {
     this.adapters = adapters
     this.onEvent = onEvent || (() => {})
     this.coalitionManager = new CoalitionManager()
+    this.anonymizer = new Anonymizer(adapters)
+
+    // Pick the most capable available adapter for Verifier and Judge
+    const systemAdapter = adapters.find(a => a.id === 'claude-sonnet') ||
+                          adapters.find(a => a.id === 'gpt-4o') ||
+                          adapters[0]
+    this.verifier = new Verifier(systemAdapter)
+    this.judge = new Judge(systemAdapter)
+    this.pinnedClaims = new PinnedClaimsBoard()
+
     this.debateId = nanoid(8)
     this.transcript = []
     this.roundTranscripts = []
@@ -114,13 +127,23 @@ export class Council {
     return this.preMortems
   }
 
-  buildTranscriptText(upToRound) {
-    return this.roundTranscripts
-      .slice(0, upToRound)
-      .map((round, i) =>
-        `--- Round ${i + 1} ---\n` +
-        round.map(r => `${r.name}:\n${r.argument}`).join('\n\n')
-      ).join('\n\n')
+  // Returns rolling window (last N rounds full prose) + pinned claims board
+  buildTranscriptContext(currentRound) {
+    const windowStart = Math.max(0, currentRound - ROLLING_WINDOW)
+    const recentRounds = this.roundTranscripts
+      .slice(windowStart, currentRound)
+      .map((round, i) => {
+        const roundNum = windowStart + i + 1
+        return `--- Round ${roundNum} ---\n` +
+          round.map(r =>
+            `${this.anonymizer.labelFor(r.adapterId)}:\n${this.anonymizer.anonymizeText(r.argument)}`
+          ).join('\n\n')
+      }).join('\n\n')
+
+    const pinned = this.pinnedClaims.render()
+
+    return `RECENT ROUNDS (last ${ROLLING_WINDOW}):\n${recentRounds}\n\n` +
+           `CONTESTED CLAIMS BOARD (unresolved — must be conceded or contradicted by evidence to close):\n${pinned}`
   }
 
   async runDebate(problemStatement) {
@@ -132,24 +155,14 @@ export class Council {
     for (let round = 1; round <= MAX_ROUNDS; round++) {
       this.emit('round_start', { round, maxRounds: MAX_ROUNDS })
 
-      let transcriptContext = this.buildTranscriptText(round - 1)
+      const transcriptContext = this.buildTranscriptContext(round - 1)
+      const coalitionStatus = this.anonymizer.anonymizeCoalitions(this.coalitionManager.getStatus())
+      const roundTokens = round === 1 ? 500 : 400
 
-      if (round > SUMMARIZE_AFTER_ROUND) {
-        try {
-          const summaryAdapter = this.adapters.find(a => a.id === 'gpt') || this.adapters[0]
-          const summary = await summaryAdapter.query(
-            summarizerPrompt(transcriptContext, round - 1),
-            systemPrompt(summaryAdapter),
-            400
-          )
-          transcriptContext = `[Summary of rounds 1-${round - 1}]:\n${summary}`
-        } catch (e) {
-          // fall back to full transcript
-        }
-      }
-
-      const coalitionStatus = this.coalitionManager.getStatus()
-      const roundTokens = round === 1 ? 500 : 350
+      // Attach active Judge challenge to the prompt if one exists
+      const judgeChallenge = this.judge.activeChallenge
+        ? `\nSPEAKER CHALLENGE: "${this.judge.activeChallenge.challenge}"\n(Address this if your argument was challenged.)\n`
+        : ''
 
       const results = await this.queryAll(
         (adapter) => round === 1
@@ -159,7 +172,8 @@ export class Council {
               round,
               transcriptContext,
               coalitionStatus,
-              previousVotes[adapter.id]
+              previousVotes[adapter.id],
+              judgeChallenge
             ),
         roundTokens,
         `round_${round}`
@@ -169,7 +183,6 @@ export class Council {
 
       const roundData = results.map(({ adapter, response }) => {
         if (isOpeningRound) {
-          // Strip any vote block the model wrote despite being told not to
           const strippedResponse = response.split('=== VOTE ===')[0].split('=== FINAL VOTE ===')[0].trim()
           return {
             adapterId: adapter.id,
@@ -203,6 +216,76 @@ export class Council {
       this.roundTranscripts.push(roundData)
       this.transcript.push({ round, responses: roundData })
 
+      // ── Verifier pass ────────────────────────────────────────────────────
+      let verifiedClaims = []
+      if (!isOpeningRound) {
+        try {
+          verifiedClaims = await this.verifier.extractAndLabel(roundData, round)
+
+          // Pin claims the Verifier marked Contradicted or that were Assumptions challenged last round
+          for (const { adapterId, claims } of verifiedClaims) {
+            for (const claim of claims) {
+              if (claim.type === 'Contradicted') {
+                this.pinnedClaims.contradict(claim.claim, round, claim.groundingEvidence)
+              } else if (claim.type === 'Assumption') {
+                this.pinnedClaims.pin(claim.claim, claim.type, adapterId, round)
+              }
+            }
+          }
+
+          // Check inflation on models that changed their vote
+          for (const r of roundData) {
+            if (previousVotes[r.adapterId] !== 'None' && previousVotes[r.adapterId] !== r.vote) {
+              const inflations = await this.verifier.checkInflation(r.adapterId, r.argument, round)
+              if (inflations.length > 0) {
+                this.emit('inflation_detected', { adapterId: r.adapterId, name: r.name, inflations })
+              }
+            }
+          }
+
+          this.emit('verifier_complete', { round, verifiedClaims })
+        } catch (e) {
+          // verifier failures are non-fatal
+        }
+      }
+
+      // ── Judge pass ───────────────────────────────────────────────────────
+      if (!isOpeningRound) {
+        try {
+          const currentVoteCounts = roundData.reduce((acc, r) => {
+            if (r.vote) acc[r.vote] = (acc[r.vote] || 0) + 1
+            return acc
+          }, {})
+
+          const challenge = await this.judge.issueChallenge(verifiedClaims, currentVoteCounts, round)
+          if (challenge) {
+            this.pinnedClaims.pin(challenge.target, 'Challenged', 'judge', round)
+            this.emit('judge_challenge', { round, challenge })
+          }
+
+          // Check defections
+          for (const r of roundData) {
+            const prev = previousVotes[r.adapterId]
+            if (prev && prev !== 'None' && prev !== r.vote) {
+              const defectionResult = await this.judge.checkDefection(r.adapterId, prev, r.vote, r.argument)
+              if (defectionResult && !defectionResult.justified) {
+                this.emit('unjustified_defection', { round, ...defectionResult })
+              }
+            }
+          }
+
+          // Score arguments
+          const scoringInput = roundData.map(r => ({
+            argument: this.anonymizer.anonymizeText(r.argument),
+            claims: verifiedClaims.find(v => v.adapterId === r.adapterId)?.claims || []
+          }))
+          const scores = await this.judge.scoreRound(scoringInput, round)
+          this.emit('round_scores', { round, scores })
+        } catch (e) {
+          // judge failures are non-fatal
+        }
+      }
+
       if (!isOpeningRound) {
         this.coalitionManager.update(roundData.map(r => ({
           adapterId: r.adapterId,
@@ -219,10 +302,19 @@ export class Council {
         responses: roundData,
         coalitions: coalitionStatusAfter,
         votes: isOpeningRound ? [] : roundData.map(r => ({ name: r.name, vote: r.vote, confidence: r.confidence })),
-        openingRound: isOpeningRound
+        openingRound: isOpeningRound,
+        pinnedClaims: this.pinnedClaims.getActive()
       })
 
       if (!isOpeningRound) {
+        // Phase 5: argument-quality settlement takes priority over vote-count settlement
+        if (this.judge.checkArgumentSettlement(SETTLEMENT_THRESHOLD)) {
+          const topScores = this.judge.roundScores.at(-1)?.scores || []
+          const top = topScores.length > 0 ? topScores.reduce((a, b) => a.total > b.total ? a : b) : null
+          this.emit('argument_settlement', { round, notes: top?.notes })
+          return { outcome: 'argument_settlement', round, notes: top?.notes }
+        }
+
         const settlement = this.coalitionManager.checkSettlement(SETTLEMENT_THRESHOLD)
         if (settlement.settled) {
           this.emit('settlement', { round, vote: settlement.vote, count: settlement.count, coalition: settlement.coalition })
@@ -239,7 +331,7 @@ export class Council {
   async runDeadlock(problemStatement) {
     this.emit('deadlock', { message: `${MAX_ROUNDS} rounds complete. No majority. Calling final vote.` })
 
-    const fullTranscript = this.buildTranscriptText(MAX_ROUNDS)
+    const fullTranscript = this.buildTranscriptContext(MAX_ROUNDS)
 
     const results = await this.queryAll(
       () => deadlockFinalVotePrompt(problemStatement, fullTranscript),
@@ -292,6 +384,9 @@ export class Council {
   async run(problemStatement, chairAnswers = null) {
     this.chairAnswers = chairAnswers
     this.coalitionManager.reset()
+    this.verifier.reset()
+    this.judge.reset()
+    this.pinnedClaims.reset()
 
     await this.runClarificationPhase(problemStatement)
 

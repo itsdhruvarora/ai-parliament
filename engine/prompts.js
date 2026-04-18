@@ -118,10 +118,24 @@ Your opening statement must address THREE things:
 
 This is a parliament, not a consulting firm. You are not here to validate the chair. You are here to find what is actually true.
 
+<<<<<<< HEAD
 No vote this round. No === VOTE === block. Opening statement only.`
 }
 
 export function debateRoundPrompt(problemStatement, roundNumber, transcript, coalitionStatus, myPreviousVote) {
+=======
+ARGUMENT FORMAT — structure your opening statement as follows:
+ARGUMENT:
+[Your prose opening statement here]
+
+CLAIMS:
+- [One specific, falsifiable claim per line]
+
+No vote this round. No === VOTE === block. Opening statement only.`
+}
+
+export function debateRoundPrompt(problemStatement, roundNumber, transcript, coalitionStatus, myPreviousVote, judgeChallenge = '') {
+>>>>>>> b37f175 (add verifier and judge)
   const coalitionSection = coalitionStatus.length > 0
     ? `\nCURRENT COALITIONS:\n${coalitionStatus.map(c =>
         `${c.name} (${c.members.join(', ')}) — ${c.stability} stability — voting ${c.vote}`
@@ -145,6 +159,7 @@ TRANSCRIPT SO FAR:
 ${transcript}
 ${coalitionSection}
 YOUR LAST VOTE: ${myPreviousVote}
+<<<<<<< HEAD
 
 RULES FOR THIS ROUND:
 - React to specific people by name. Agree, disagree, or build on their position.
@@ -153,6 +168,24 @@ RULES FOR THIS ROUND:
 - If you are opposing a coalition, find the single weakest point in their argument and attack it.
 - Every response must move the debate forward — new argument, new evidence, new concession, or new attack. No restating.
 
+=======
+${judgeChallenge}
+
+RULES FOR THIS ROUND:
+- React to specific arguments by quoting or referencing them directly — not by model name.
+- Do not repeat your Round 1 position. You have heard the room. What do you think NOW?
+- If you are in a coalition, make the case for your position directly to those not in it.
+- If you are opposing a coalition, find the single weakest point in their argument and attack it.
+- Every response must move the debate forward — new argument, new evidence, new concession, or new attack. No restating.
+
+ARGUMENT FORMAT — structure your argument as follows:
+ARGUMENT:
+[Your prose argument here]
+
+CLAIMS:
+- [One specific, falsifiable claim per line — not assertions, actual claims that could be proven true or false]
+
+>>>>>>> b37f175 (add verifier and judge)
 VOTE OPTIONS: ${voteOptions}
 
 VOTE RULES — every vote requires a direction:
